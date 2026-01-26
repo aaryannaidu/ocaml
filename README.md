@@ -4,5 +4,5 @@ This repository contains OCaml projects exploring functional programming concept
 
 ## Projects
 
-### [Assignment 0: Sudoku Solver](./asgmt_0)
+### [Sudoku Solver](./suduko_solver)
 A SAT-based Sudoku solver implementation that converts Sudoku puzzles to CNF (Conjunctive Normal Form) and uses SAT solving techniques to find solutions.
