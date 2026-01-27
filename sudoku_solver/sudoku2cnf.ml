@@ -21,6 +21,8 @@ Each digit appears in each block.
 No digit appears more than once in a block 
 given values are fixed *)
 
+(* let min_one_value i j = 
+  List.init !size (fun v -> encoder i j (v + 1)) *)
 let min_one_value i j = 
   let clause = ref [] in
   for v = 1 to !size do
@@ -236,22 +238,22 @@ let generate_cnf grid_rows =
   
   !cnf;;
 
-(* ===== DIMACS OUTPUT ===== *)
+(* DIMACS OUTPUT *)
 
 let print_dimacs cnf = 
   let num_vars = !size * !size * !size in
   let num_clauses = List.length cnf in
   
-  (* Print header *)
+  (* header *)
   Printf.printf "p cnf %d %d\n" num_vars num_clauses;
   
-  (* Print each clause *)
+  (* clauses *)
   List.iter (fun clause ->
     List.iter (fun lit -> Printf.printf "%d " lit) clause;
     Printf.printf "0\n"
   ) cnf
 
-(* ===== MAIN ===== *)
+(* MAIN *)
 
 let () = 
   if Array.length Sys.argv < 2 then begin

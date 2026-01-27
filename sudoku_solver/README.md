@@ -173,6 +173,16 @@ The solver automatically detects grid size:
 537194268....... 
 ```
 
+### 3. Multiple Solutions
+
+The solver can detect if a Sudoku puzzle has more than one valid solution using a **blocking clause** technique:
+
+1. **Find first solution**: The solver finds a valid assignment of values.
+2. **Add blocking clause**: We take all the "true" variables from the first solution and create a new constraint that says the solver cannot pick the exact same combination again.
+3. **Solve again**: If Z3 can still find a solution with this new constraint, it means the puzzle has **Multiple solutions**. If it cannot (UNSAT), the solution is **Unique**.
+
+This logic is automated in the `Makefile`. When you run `make run`, it will tell you on the terminal whether the solution found is unique or if others exist.
+
 ## Implementation Details
 
 ### Type System

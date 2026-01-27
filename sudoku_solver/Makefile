@@ -1,5 +1,4 @@
 # Sudoku Solver Makefile
-# Compiles OCaml programs and runs the full pipeline
 
 # Compiler and flags
 OCAMLC = ocamlc
