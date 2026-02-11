@@ -6,3 +6,6 @@ This repository contains OCaml projects exploring functional programming concept
 
 ### [Sudoku Solver](./suduko_solver)
 A SAT-based Sudoku solver implementation that converts Sudoku puzzles to CNF (Conjunctive Normal Form) and uses SAT solving techniques to find solutions.
+
+### [Automated Theorem Proving](./abstarct_syntax)
+An implementation of first-order logic abstract syntax trees, including support for signatures, complex expressions, substitutions (composition and in-place), and predicate logic formulas.
