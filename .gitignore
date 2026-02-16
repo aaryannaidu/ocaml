@@ -1,0 +1,12 @@
+*.DS_Store
+*.cmo
+*.cmi
+*.out
+*.cmx
+*.o
+*.d.cm*
+*.d.cmx
+*.d.cmo
+*.d.cmi
+*.d.cmx
+
