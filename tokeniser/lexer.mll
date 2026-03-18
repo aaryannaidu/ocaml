@@ -1,4 +1,4 @@
-{ open Main}
+{ open Main }
 
 rule token = parse
 (* whitespace *)
@@ -39,7 +39,9 @@ rule token = parse
 (* indentifiers *)
     | "t"                              { TRUE }
     | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9']* '.'?   { IDENT (Lexing.lexeme lexbuf) }
-    | eof { EOF }
+    | eof  { EOF }
+(* catch-all: anything not matched above is a lexical error *)
+    | _    { failwith ("Unexpected token: " ^ Lexing.lexeme lexbuf) }
     
    
    

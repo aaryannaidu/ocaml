@@ -188,6 +188,28 @@ let () =
     "(+ 99999999999999999999 1)"
     [LPAR; PLUS; INT "99999999999999999999"; INT "1"; RPAR; EOF];
 
+  (* ── Section 13: 5+ semicolons still treated as comment ── *)
+  Printf.printf "\n── 5+ Semicolons = Comment ──\n";
+  assert_tokens "5 semicolons"  ";;;;; still a comment\n42"  [INT "42"; EOF];
+  assert_tokens "10 semicolons" ";;;;;;;;;; big header\n t"   [TRUE; EOF];
+
+  (* ── Section 14: Unexpected characters raise an error ── *)
+  Printf.printf "\n── Unexpected Characters (catch-all error) ──\n";
+  let assert_error label input =
+    (try
+      let _ = tokenise input in
+      Printf.printf "  [FAIL] %s — expected error but got tokens\n" label;
+      incr failed
+    with Failure msg ->
+      Printf.printf "  [PASS] %s — caught error: %s\n" label msg;
+      incr passed)
+  in
+  assert_error "@ symbol"     "(@ foo)";
+  assert_error "# symbol"     "#define";
+  assert_error "$ symbol"     "$var";
+  assert_error "! symbol"     "!flag";
+  assert_error "backslash"    "\\x";
+
   (* ── Final summary ── *)
   Printf.printf "\n══════════════════════════════\n";
   Printf.printf "Results: %d passed, %d failed\n" !passed !failed;
@@ -196,3 +218,4 @@ let () =
   else
     Printf.printf "Some tests FAILED ✗\n";
   Printf.printf "══════════════════════════════\n"
+

@@ -36,7 +36,7 @@ Rules are listed in priority order (earlier rules take precedence):
 | Pattern | Token | Notes |
 |---------|-------|-------|
 | `[' ' '\t' '\n' '\r']` | *(skipped)* | Whitespace consumed silently |
-| `';'+ [^ '\n']* '\n'?` | *(skipped)* | All comment styles: `;` `;;` `;;;` `;;;;` |
+| `';'+ [^ '\n']* '\n'?` | *(skipped)* | All comment styles: `;` `;;` `;;;` `;;;;` and 5+ semicolons |
 | `"()"` | `NIL` | Must appear before `(` rule |
 | `'('` `')'` `'\''` | `LPAR` `RPAR` `QUOTE` | |
 | `['0'-'9']+` | `INT of string` | Raw digits stored as string |
@@ -67,8 +67,11 @@ The regex `c[ad]+r` generalises over all compound accessor forms (`car`, `cdr`, 
 **`"t"` before the general identifier rule**  
 If the identifier rule appeared first, `t` would be matched as `IDENT("t")` instead of `TRUE`. Placing `"t"` above the identifier rule gives it priority.
 
-**Comments — single regex handles all four styles**  
-`;`, `;;`, `;;;`, `;;;;` are all covered by `';'+ [^ '\n']* '\n'?`. The `+` quantifier matches one or more semicolons, so no separate rules are needed per style.
+**Comments — single regex handles all styles including 5+**  
+`;`, `;;`, `;;;`, `;;;;` are all covered by `';'+ [^ '\n']* '\n'?`. The `+` quantifier matches one or more semicolons, so no separate rules are needed per style. Any sequence of 5 or more semicolons is also treated as a comment — this is a deliberate design decision, as restricting to exactly 1–4 would add complexity for no benefit.
+
+**Unexpected characters raise a `Failure` error**  
+Any character not matched by the above rules (e.g. `@`, `#`, `$`) hits the catch-all rule `| _ { failwith ("Unexpected token: " ^ Lexing.lexeme lexbuf) }`. This gives a clear error message rather than a cryptic crash.
 
 ## Building
 
