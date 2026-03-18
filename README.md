@@ -13,6 +13,9 @@ An implementation of first-order logic abstract syntax trees, including support 
 ### [BigNum Module](./big_num)
 A library for arbitrary-precision integer arithmetic (`BIGNUM`). 
 
+### [Tokeniser](./tokeniser)
+A lexical analyser for the LITHP language, implemented using `ocamllex`.
+
 **Objectives:**
 - Overcome the limitations of OCaml's native 64-bit integers by menggunakan list-based digit representation.
 - Implement a complete suite of arithmetic operations (Addition, Subtraction, Multiplication, Division, and Remainder) and comparison operators.
