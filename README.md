@@ -16,6 +16,12 @@ A library for arbitrary-precision integer arithmetic (`BIGNUM`).
 ### [Tokeniser](./tokeniser)
 A lexical analyser for the LITHP language, implemented using `ocamllex`.
 
+### [parser](./parser)
+A parser for the LITHP language, implemented using `ocamllex`.
+
+### [type checker](./type_checker)
+A type checker for the LITHP language, implemented using `ocamllex`.
+
 **Objectives:**
 - Overcome the limitations of OCaml's native 64-bit integers by menggunakan list-based digit representation.
 - Implement a complete suite of arithmetic operations (Addition, Subtraction, Multiplication, Division, and Remainder) and comparison operators.
