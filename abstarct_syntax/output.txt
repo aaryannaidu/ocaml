@@ -1,0 +1,104 @@
+============================================================
+PART 1: check_sig
+============================================================
+
+1. check_sig []
+   Result: true
+
+2. check_sig [("f", 2); ("g", 1); ("a", 0)]
+   Result: true
+
+3. check_sig [("f", 2); ("g", -3)]
+   Result: false
+
+4. check_sig [("f", 2); ("b", 1); ("f", 1)]
+   Result: false
+
+5. check_sig [("f", 0); ("g", 0)]
+   Result: true
+
+6. check_sig [("f", 1000)]
+   Result: true
+
+============================================================
+PART 2A: wfexp
+Given Signature: S = [("f", 2); ("g", 1); ("a", 0)]
+============================================================
+
+1. wfexp (Node ("f", [| Node ("g", [| V "x" |]); Node ("a", [||]) |]))
+   Result: true
+
+2. wfexp (Node ("f", [| V "x" |]))   (* arity mismatch: f has arity 2 *)
+   Result: false
+
+3. wfexp (Node ("f", [| V "x"; V "y"; V "z" |]))   (* arity mismatch *)
+   Result: false
+
+4. wfexp (Node ("h", [| V "x" |]))   (* h not in signature *)
+   Result: false
+
+5. wfexp (Node ("f", [| Node ("a", [| V "x" |]); V "y" |]))   (* a has arity 0, given 1 arg *)
+   Result: false
+
+============================================================
+PART 2B: ht, size, vars
+============================================================
+
+Expression: Node ("f", [| Node ("g", [| V "x" |]); Node ("a", [||]) |])
+
+1. ht  = 2
+2. size = 4
+
+Expression for vars: Node ("f", [| Node ("g", [| V "y" |]); V "x" |])
+3. vars = [x; y]
+
+============================================================
+PART 3: subst, compose, edit, inplace_subst
+sigma = [("fn",3); ("f",2); ("g",1); ("h",2); ("a",0); ("b",0); ("c",0)]
+============================================================
+
+--- 1. Substitution ---
+s1  = [("x", Node("h",[|b; y|])); ("y", Node("g",[|a|]))]
+e1  = Node("fn",[|Node("g",[|x|]); Node("h",[|x; y|]); z|])
+subst e1 s1 = fn(g(h(b, y)), h(h(b, y), g(a)), z)
+
+--- 2. Composition ---
+s1_comp = [("x", Node("g",[|y|]))]
+s2_comp = [("x", b); ("y", Node("h",[|a; b|])); ("z", a)]
+e2      = Node("h",[|x; z|])
+subst e2 (compose s1_comp s2_comp) = h(b, a)
+
+--- 3. Edit by position ---
+e3 = Node("fn",[|Node("g",[|x|]); c; Node("h",[|b; a|])|])
+edit e3 [2;1] (Node("g",[|c|]))
+   Result (0-indexed pos [2;1]): fn(g(x), c, h(b, g(c)))
+
+--- 4. In-place substitution ---
+e4 = Node("f",[|x; Node("g",[|x|])|])
+s4 = [("x", Node("g",[|b|]))]
+inplace_subst e4 s4 => e4 is now: f(g(b), g(g(b)))
+
+============================================================
+PART 5: wff, psubst, wp
+pi = [("P",2); ("Q",1); ("R",0)]
+============================================================
+
+--- 1. wff checks ---
+wff pi T         = true
+wff pi F         = true
+wff pi (Pred("R",[|a|]))  (* R has arity 0, given 1 arg => false *) = false
+wff pi (Pred("R",[||]))   (* R with 0 args => true *) = true
+
+--- 2. Predicate substitution ---
+s_p = [("x", Node("h",[|b; y|])); ("y", Node("g",[|a|]))]
+p_p = Or(Pred("Q",[|x|]), Pred("P",[|x; y|]))
+psubst p_p s_p = OR(Q(h(b, y)), P(h(b, y), g(a)))
+
+--- 3. Weakest precondition ---
+p_wp = And(Not(Pred("P",[|x; y|])), Pred("Q",[|x|]))
+wp "x" (Node("g",[|b|])) p_wp
+wp result = AND(NOT(P(g(b), y)), Q(g(b)))
+
+============================================================
+All test cases completed. Results written to output.txt
+============================================================

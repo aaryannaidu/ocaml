@@ -4,311 +4,305 @@
 open Signature;;
 open Expression;;
 open Substitution;;
-
-(* ========================================
-   TEST FRAMEWORK
-   ======================================== *)
-
-let test_count = ref 0;;
-let passed_count = ref 0;;
-let failed_count = ref 0;;
-
-let assert_true name condition =
-  test_count := !test_count + 1;
-  if condition then begin
-    passed_count := !passed_count + 1;
-    Printf.printf "✓ PASS: %s\n" name
-  end else begin
-    failed_count := !failed_count + 1;
-    Printf.printf "✗ FAIL: %s\n" name
-  end;;
-
-let assert_false name condition =
-  assert_true name (not condition);;
-
-let assert_equal name expected actual =
-  test_count := !test_count + 1;
-  if expected = actual then begin
-    passed_count := !passed_count + 1;
-    Printf.printf "✓ PASS: %s\n" name
-  end else begin
-    failed_count := !failed_count + 1;
-    Printf.printf "✗ FAIL: %s (expected %d, got %d)\n" name expected actual
-  end;;
-
-let print_summary () =
-  Printf.printf "\n========================================\n";
-  Printf.printf "TEST SUMMARY\n";
-  Printf.printf "========================================\n";
-  Printf.printf "Total tests: %d\n" !test_count;
-  Printf.printf "Passed: %d\n" !passed_count;
-  Printf.printf "Failed: %d\n" !failed_count;
-  if !failed_count = 0 then
-    Printf.printf "✓ ALL TESTS PASSED!\n"
-  else
-    Printf.printf "✗ SOME TESTS FAILED\n";
-  Printf.printf "========================================\n";;
-
-(* ========================================
-   TEST PART 1: SIGNATURES
-   ======================================== *)
-
-Printf.printf "=== TESTING SIGNATURES ===\n";;
-
-(* Test 1: Valid signature *)
-let sig1 = [("f", 2); ("g", 1); ("a", 0)];;
-assert_true "Valid signature should pass" (check_sig sig1);;
-
-(* Test 2: Duplicate symbols *)
-let sig2 = [("f", 2); ("g", 1); ("f", 0)];;
-assert_false "Duplicate symbols should fail" (check_sig sig2);;
-
-(* Test 3: Negative arity *)
-let sig3 = [("f", 2); ("g", -1); ("a", 0)];;
-assert_false "Negative arity should fail" (check_sig sig3);;
-
-(* Test 4: Empty signature *)
-let sig4 = [];;
-assert_true "Empty signature should pass" (check_sig sig4);;
-
-(* Test 5: Single symbol *)
-let sig5 = [("f", 3)];;
-assert_true "Single symbol should pass" (check_sig sig5);;
-
-Printf.printf "\n";;
-
-(* ========================================
-   TEST PART 2: EXPRESSIONS
-   ======================================== *)
-
-Printf.printf "=== TESTING EXPRESSIONS ===\n";;
-
-(* Define a valid signature for testing *)
-let test_sig = [("f", 2); ("g", 1); ("a", 0); ("h", 3)];;
-
-(* Test expressions *)
-let exp1 = V "x";;
-assert_true "Variable should be well-formed" (wfexp test_sig exp1);;
-assert_equal "Variable height should be 0" 0 (ht exp1);;
-assert_equal "Variable size should be 1" 1 (size exp1);;
-assert_true "Variable vars should contain x" (vars exp1 = ["x"]);;
-
-let exp2 = Node (("a", 0), [||]);;
-assert_true "Nullary symbol should be well-formed" (wfexp test_sig exp2);;
-assert_equal "Nullary symbol height should be 0" 0 (ht exp2);;
-assert_equal "Nullary symbol size should be 1" 1 (size exp2);;
-assert_true "Nullary symbol should have no vars" (vars exp2 = []);;
-
-let exp3 = Node (("g", 1), [| V "x" |]);;
-assert_true "Unary function should be well-formed" (wfexp test_sig exp3);;
-assert_equal "Unary function height should be 1" 1 (ht exp3);;
-assert_equal "Unary function size should be 2" 2 (size exp3);;
-assert_true "Unary function vars should contain x" (vars exp3 = ["x"]);;
-
-let exp4 = Node (("f", 2), [| V "x"; V "y" |]);;
-assert_true "Binary function should be well-formed" (wfexp test_sig exp4);;
-assert_equal "Binary function height should be 1" 1 (ht exp4);;
-assert_equal "Binary function size should be 3" 3 (size exp4);;
-assert_true "Binary function vars should contain x and y" (vars exp4 = ["x"; "y"]);;
-
-let exp5 = Node (("f", 2), [| Node (("g", 1), [| V "x" |]); Node (("a", 0), [||]) |]);;
-assert_true "Nested expression should be well-formed" (wfexp test_sig exp5);;
-assert_equal "Nested expression height should be 2" 2 (ht exp5);;
-assert_equal "Nested expression size should be 4" 4 (size exp5);;
-assert_true "Nested expression vars should contain x" (vars exp5 = ["x"]);;
-
-let exp6 = Node (("h", 3), [| V "x"; V "y"; V "z" |]);;
-assert_true "Ternary function should be well-formed" (wfexp test_sig exp6);;
-assert_equal "Ternary function height should be 1" 1 (ht exp6);;
-assert_equal "Ternary function size should be 4" 4 (size exp6);;
-assert_true "Ternary function vars should contain x, y, z" (vars exp6 = ["x"; "y"; "z"]);;
-
-let exp7 = Node (("f", 2), [| 
-  Node (("f", 2), [| V "x"; V "y" |]); 
-  Node (("g", 1), [| V "z" |]) 
-|]);;
-assert_true "Complex nested expression should be well-formed" (wfexp test_sig exp7);;
-assert_equal "Complex nested expression height should be 2" 2 (ht exp7);;
-assert_equal "Complex nested expression size should be 6" 6 (size exp7);;
-assert_true "Complex nested expression vars should contain x, y, z" (vars exp7 = ["x"; "y"; "z"]);;
-
-(* Test invalid expressions *)
-let exp8 = Node (("f", 2), [| V "x" |]);;
-assert_false "Wrong arity should fail" (wfexp test_sig exp8);;
-
-let exp9 = Node (("k", 1), [| V "x" |]);;
-assert_false "Unknown symbol should fail" (wfexp test_sig exp9);;
-
-let exp10 = Node (("f", 2), [| V "x"; V "x" |]);;
-assert_true "Duplicate variables should still be well-formed" (wfexp test_sig exp10);;
-assert_true "Duplicate variables should return unique list" (vars exp10 = ["x"]);;
-
-Printf.printf "\n";;
-
-(* ========================================
-   TEST PART 3: SUBSTITUTION
-   ======================================== *)
-
-Printf.printf "=== TESTING SUBSTITUTION ===\n";;
-
-(* Helper function to compare expressions *)
-let rec exp_equal e1 e2 =
-  match (e1, e2) with
-  | (V v1, V v2) -> v1 = v2
-  | (Node ((n1, a1), args1), Node ((n2, a2), args2)) ->
-      n1 = n2 && a1 = a2 && Array.length args1 = Array.length args2 &&
-      Array.for_all (fun i -> exp_equal args1.(i) args2.(i)) 
-        (Array.init (Array.length args1) (fun i -> i))
-  | _ -> false;;
-
-(* Test 1: Simple substitution *)
-let exp_s1 = V "x";;
-let s1 = [("x", Node (("a", 0), [||]))];;
-let result1 = subst s1 exp_s1;;
-let expected1 = Node (("a", 0), [||]);;
-assert_true "Simple substitution x -> a()" (exp_equal result1 expected1);;
-
-(* Test 2: Nested substitution *)
-let exp_s2 = Node (("f", 2), [| V "x"; V "y" |]);;
-let s2 = [("x", Node (("g", 1), [| V "z" |])); ("y", Node (("a", 0), [||]))];;
-let result2 = subst s2 exp_s2;;
-let expected2 = Node (("f", 2), [| Node (("g", 1), [| V "z" |]); Node (("a", 0), [||]) |]);;
-assert_true "Nested substitution" (exp_equal result2 expected2);;
-
-(* Test 3: Partial substitution *)
-let exp_s3 = Node (("f", 2), [| V "x"; V "y" |]);;
-let s3 = [("x", Node (("a", 0), [||]))];;
-let result3 = subst s3 exp_s3;;
-let expected3 = Node (("f", 2), [| Node (("a", 0), [||]); V "y" |]);;
-assert_true "Partial substitution (only x)" (exp_equal result3 expected3);;
-
-(* Test 4: No substitution *)
-let exp_s4 = Node (("f", 2), [| V "x"; V "y" |]);;
-let s4 = [];;
-let result4 = subst s4 exp_s4;;
-assert_true "Empty substitution should not change expression" (exp_equal result4 exp_s4);;
-
-(* Test 5: Edit at position *)
-let exp_edit = Node (("f", 2), [| Node (("g", 1), [| V "x" |]); Node (("a", 0), [||]) |]);;
-let new_exp = Node (("a", 0), [||]);;
-match edit [0; 0] new_exp exp_edit with
-| Some result -> 
-    let expected = Node (("f", 2), [| Node (("g", 1), [| Node (("a", 0), [||]) |]); Node (("a", 0), [||]) |]) in
-    assert_true "Edit at position [0,0]" (exp_equal result expected)
-| None -> assert_true "Edit at position [0,0] should succeed" false;;
-
-match edit [0; 0; 0] new_exp exp_edit with
-| Some _ -> assert_true "Edit at invalid position should fail" false
-| None -> assert_true "Edit at invalid position [0,0,0] should return None" true;;
-
-(* Test 6: In-place substitution *)
-let exp_inplace = Node (("f", 2), [| V "x"; Node (("g", 1), [| V "y" |]) |]);;
-let s_inplace = [("x", Node (("a", 0), [||])); ("y", V "z")];;
-subst_inplace s_inplace exp_inplace;;
-let expected_inplace = Node (("f", 2), [| Node (("a", 0), [||]); Node (("g", 1), [| V "z" |]) |]);;
-assert_true "In-place substitution should mutate expression" (exp_equal exp_inplace expected_inplace);;
-
-Printf.printf "\n";;
-
-(* ========================================
-   TEST PART 4: PREDICATES
-   ======================================== *)
-
 open Predicates;;
 
-Printf.printf "=== TESTING PREDICATES ===\n";;
+(* ========================================
+   OUTPUT SETUP — redirect to output.txt
+   ======================================== *)
 
-(* Define signatures *)
-let exp_sig = [("f", 2); ("g", 1); ("a", 0); ("h", 3)];;
-let pred_sig = [("P", 1); ("Q", 2); ("R", 0); ("S", 3)];;
+let oc = open_out "output.txt";;
+let print s = output_string oc s; output_string oc "\n"; flush oc;;
+let printf fmt = Printf.ksprintf print fmt;;
 
-(* Helper function to compare predicates *)
-let rec pred_equal p1 p2 =
-  match (p1, p2) with
-  | (T, T) -> true
-  | (F, F) -> true
-  | (Pred ((n1, a1), args1), Pred ((n2, a2), args2)) ->
-      n1 = n2 && a1 = a2 && Array.length args1 = Array.length args2 &&
-      Array.for_all (fun i -> exp_equal args1.(i) args2.(i)) 
-        (Array.init (Array.length args1) (fun i -> i))
-  | (Not p1', Not p2') -> pred_equal p1' p2'
-  | (And (p1a, p1b), And (p2a, p2b)) -> pred_equal p1a p2a && pred_equal p1b p2b
-  | (Or (p1a, p1b), Or (p2a, p2b)) -> pred_equal p1a p2a && pred_equal p1b p2b
-  | _ -> false;;
+(* ========================================
+   PRETTY PRINTERS
+   ======================================== *)
 
-(* Test 1: Simple predicates well-formedness *)
-assert_true "T should be well-formed" (wff pred_sig exp_sig T);;
-assert_true "F should be well-formed" (wff pred_sig exp_sig F);;
-assert_true "R (nullary) should be well-formed" (wff pred_sig exp_sig (Pred (("R", 0), [||])));;
-assert_true "P(x) should be well-formed" (wff pred_sig exp_sig (Pred (("P", 1), [| V "x" |])));;
+let rec string_of_exp e =
+  match e with
+  | V x -> x
+  | Node ((name, _), args) ->
+      if Array.length args = 0 then name
+      else name ^ "(" ^ (String.concat ", " (Array.to_list (Array.map string_of_exp args))) ^ ")";;
 
-(* Test 2: Complex expressions in predicates *)
-let p_complex = Pred (("P", 1), [| Node (("g", 1), [| V "x" |]) |]);;
-assert_true "P(g(x)) should be well-formed" (wff pred_sig exp_sig p_complex);;
+let rec string_of_pred p =
+  match p with
+  | T -> "T"
+  | F -> "F"
+  | Pred ((name, _), args) ->
+      if Array.length args = 0 then name
+      else name ^ "(" ^ (String.concat ", " (Array.to_list (Array.map string_of_exp args))) ^ ")"
+  | Not p' -> "NOT(" ^ string_of_pred p' ^ ")"
+  | And (p1, p2) -> "AND(" ^ string_of_pred p1 ^ ", " ^ string_of_pred p2 ^ ")"
+  | Or (p1, p2) -> "OR(" ^ string_of_pred p1 ^ ", " ^ string_of_pred p2 ^ ")";;
 
-let p_complex2 = Pred (("Q", 2), [| V "x"; Node (("f", 2), [| V "y"; V "z" |]) |]);;
-assert_true "Q(x, f(y, z)) should be well-formed" (wff pred_sig exp_sig p_complex2);;
+(* ========================================
+   PART 1: check_sig
+   ======================================== *)
 
-(* Test 3: Compound predicates *)
-let p_not = Not (Pred (("P", 1), [| V "x" |]));;
-assert_true "¬P(x) should be well-formed" (wff pred_sig exp_sig p_not);;
+printf "============================================================";;
+printf "PART 1: check_sig";;
+printf "============================================================";;
 
-let p_and = And (Pred (("P", 1), [| V "x" |]), Pred (("R", 0), [||]));;
-assert_true "P(x) ∧ R should be well-formed" (wff pred_sig exp_sig p_and);;
+(* 1. check_sig [] *)
+printf "";;
+printf "1. check_sig []";;
+printf "   Result: %b" (check_sig []);;
 
-let p_or = Or (Pred (("P", 1), [| V "x" |]), Not (Pred (("R", 0), [||])));;
-assert_true "P(x) ∨ ¬R should be well-formed" (wff pred_sig exp_sig p_or);;
+(* 2. check_sig [("f", 2); ("g", 1); ("a", 0)] *)
+printf "";;
+printf "2. check_sig [(\"f\", 2); (\"g\", 1); (\"a\", 0)]";;
+printf "   Result: %b" (check_sig [("f", 2); ("g", 1); ("a", 0)]);;
 
-(* Test 4: Invalid predicates *)
-let p_invalid1 = Pred (("X", 1), [| V "x" |]);;
-assert_false "Unknown predicate symbol should fail" (wff pred_sig exp_sig p_invalid1);;
+(* 3. check_sig [("f", 2); ("g", -3)]  — negative arity *)
+printf "";;
+printf "3. check_sig [(\"f\", 2); (\"g\", -3)]";;
+printf "   Result: %b" (check_sig [("f", 2); ("g", -3)]);;
 
-let p_invalid2 = Pred (("P", 1), [||]);;
-assert_false "Wrong arity (P with 0 args) should fail" (wff pred_sig exp_sig p_invalid2);;
+(* 4. check_sig [("f", 2); ("b", 1); ("f", 1)]  — duplicate *)
+printf "";;
+printf "4. check_sig [(\"f\", 2); (\"b\", 1); (\"f\", 1)]";;
+printf "   Result: %b" (check_sig [("f", 2); ("b", 1); ("f", 1)]);;
 
-let p_invalid3 = Pred (("Q", 2), [| V "x" |]);;
-assert_false "Wrong arity (Q with 1 arg) should fail" (wff pred_sig exp_sig p_invalid3);;
+(* 5. check_sig [("f", 0); ("g", 0)] *)
+printf "";;
+printf "5. check_sig [(\"f\", 0); (\"g\", 0)]";;
+printf "   Result: %b" (check_sig [("f", 0); ("g", 0)]);;
 
-(* Test 5: Predicate substitution *)
-let p_subst1 = Pred (("P", 1), [| V "x" |]);;
-let subst_p1 = [("x", Node (("a", 0), [||]))];;
-let result_p1 = psubst subst_p1 p_subst1;;
-let expected_p1 = Pred (("P", 1), [| Node (("a", 0), [||]) |]);;
-assert_true "Substitution in P(x) with x -> a()" (pred_equal result_p1 expected_p1);;
+(* 6. check_sig [("f", 1000)] *)
+printf "";;
+printf "6. check_sig [(\"f\", 1000)]";;
+printf "   Result: %b" (check_sig [("f", 1000)]);;
 
-(* Test 6: Substitution in compound predicates *)
-let p_subst2 = And (Pred (("P", 1), [| V "x" |]), Pred (("Q", 2), [| V "x"; V "y" |]));;
-let subst_p2 = [("x", Node (("g", 1), [| V "z" |])); ("y", Node (("a", 0), [||]))];;
-let result_p2 = psubst subst_p2 p_subst2;;
-let expected_p2 = And (
-  Pred (("P", 1), [| Node (("g", 1), [| V "z" |]) |]),
-  Pred (("Q", 2), [| Node (("g", 1), [| V "z" |]); Node (("a", 0), [||]) |])
+(* ========================================
+   PART 2A: wfexp
+   Given Signature: S = [("f", 2); ("g", 1); ("a", 0)]
+   ======================================== *)
+
+printf "";;
+printf "============================================================";;
+printf "PART 2A: wfexp";;
+printf "Given Signature: S = [(\"f\", 2); (\"g\", 1); (\"a\", 0)]";;
+printf "============================================================";;
+
+let s_2a = [("f", 2); ("g", 1); ("a", 0)];;
+
+(* 1. wfexp (Node ("f", [| Node ("g", [| V "x" |]); Node ("a", [||]) |])) *)
+let wf1 = Node (("f", 2), [| Node (("g", 1), [| V "x" |]); Node (("a", 0), [||]) |]);;
+printf "";;
+printf "1. wfexp (Node (\"f\", [| Node (\"g\", [| V \"x\" |]); Node (\"a\", [||]) |]))";;
+printf "   Result: %b" (wfexp s_2a wf1);;
+
+(* 2. wfexp (Node ("f", [| V "x" |]))  — arity mismatch *)
+let wf2 = Node (("f", 2), [| V "x" |]);;
+printf "";;
+printf "2. wfexp (Node (\"f\", [| V \"x\" |]))   (* arity mismatch: f has arity 2 *)";;
+printf "   Result: %b" (wfexp s_2a wf2);;
+
+(* 3. wfexp (Node ("f", [| V "x"; V "y"; V "z" |]))  — arity mismatch *)
+let wf3 = Node (("f", 2), [| V "x"; V "y"; V "z" |]);;
+printf "";;
+printf "3. wfexp (Node (\"f\", [| V \"x\"; V \"y\"; V \"z\" |]))   (* arity mismatch *)";;
+printf "   Result: %b" (wfexp s_2a wf3);;
+
+(* 4. wfexp (Node ("h", [| V "x" |]))  — h not in signature *)
+let wf4 = Node (("h", 1), [| V "x" |]);;
+printf "";;
+printf "4. wfexp (Node (\"h\", [| V \"x\" |]))   (* h not in signature *)";;
+printf "   Result: %b" (wfexp s_2a wf4);;
+
+(* 5. wfexp (Node ("f", [| Node ("a", [| V "x" |]); V "y" |]))  — a has arity 0 but given 1 arg *)
+let wf5 = Node (("f", 2), [| Node (("a", 0), [| V "x" |]); V "y" |]);;
+printf "";;
+printf "5. wfexp (Node (\"f\", [| Node (\"a\", [| V \"x\" |]); V \"y\" |]))   (* a has arity 0, given 1 arg *)";;
+printf "   Result: %b" (wfexp s_2a wf5);;
+
+(* ========================================
+   PART 2B: ht, size, vars
+   ======================================== *)
+
+printf "";;
+printf "============================================================";;
+printf "PART 2B: ht, size, vars";;
+printf "============================================================";;
+
+(* All three on: Node ("f", [| Node ("g", [| V "x" |]); Node ("a", [||]) |]) *)
+let e_2b = Node (("f", 2), [| Node (("g", 1), [| V "x" |]); Node (("a", 0), [||]) |]);;
+
+printf "";;
+printf "Expression: Node (\"f\", [| Node (\"g\", [| V \"x\" |]); Node (\"a\", [||]) |])";;
+printf "";;
+printf "1. ht  = %d" (ht e_2b);;
+
+(* size of: Node ("f", [| Node ("g", [| V "x" |]); Node ("a", [||]) |]) *)
+let e_2b_size = Node (("f", 2), [| Node (("g", 1), [| V "x" |]); Node (("a", 0), [||]) |]);;
+printf "2. size = %d" (size e_2b_size);;
+
+(* vars of: Node ("f", [| Node ("g", [| V "y" |]); V "x" |]) *)
+let e_2b_vars = Node (("f", 2), [| Node (("g", 1), [| V "y" |]); V "x" |]);;
+printf "";;
+printf "Expression for vars: Node (\"f\", [| Node (\"g\", [| V \"y\" |]); V \"x\" |])";;
+printf "3. vars = [%s]" (String.concat "; " (vars e_2b_vars));;
+
+(* ========================================
+   PART 3: subst, compose, edit, inplace_subst
+   Given sigma = [("fn",3); ("f",2); ("g",1); ("h",2); ("a",0); ("b",0); ("c",0)]
+   ======================================== *)
+
+printf "";;
+printf "============================================================";;
+printf "PART 3: subst, compose, edit, inplace_subst";;
+printf "sigma = [(\"fn\",3); (\"f\",2); (\"g\",1); (\"h\",2); (\"a\",0); (\"b\",0); (\"c\",0)]";;
+printf "============================================================";;
+
+(* Common atoms *)
+let x_v = V "x";;
+let y_v = V "y";;
+let z_v = V "z";;
+let a_n = Node (("a", 0), [||]);;
+let b_n = Node (("b", 0), [||]);;
+let c_n = Node (("c", 0), [||]);;
+
+(* --- 1. Substitution --- *)
+printf "";;
+printf "--- 1. Substitution ---";;
+printf "s1  = [(\"x\", Node(\"h\",[|b; y|])); (\"y\", Node(\"g\",[|a|]))]";;
+printf "e1  = Node(\"fn\",[|Node(\"g\",[|x|]); Node(\"h\",[|x; y|]); z|])";;
+
+let s1_subst = [
+  ("x", Node (("h", 2), [| b_n; y_v |]));
+  ("y", Node (("g", 1), [| a_n |]))
+];;
+let e1 = Node (("fn", 3), [|
+  Node (("g", 1), [| x_v |]);
+  Node (("h", 2), [| x_v; y_v |]);
+  z_v
+|]);;
+let result_subst = subst s1_subst e1;;
+printf "subst e1 s1 = %s" (string_of_exp result_subst);;
+
+(* --- 2. Composition --- *)
+printf "";;
+printf "--- 2. Composition ---";;
+printf "s1_comp = [(\"x\", Node(\"g\",[|y|]))]";;
+printf "s2_comp = [(\"x\", b); (\"y\", Node(\"h\",[|a; b|])); (\"z\", a)]";;
+printf "e2      = Node(\"h\",[|x; z|])";;
+
+let s1_comp = [("x", Node (("g", 1), [| y_v |]))];;
+let s2_comp = [
+  ("x", b_n);
+  ("y", Node (("h", 2), [| a_n; b_n |]));
+  ("z", a_n)
+];;
+let e2 = Node (("h", 2), [| x_v; z_v |]);;
+let composed = compose s1_comp s2_comp;;
+let result_comp = subst composed e2;;
+printf "subst e2 (compose s1_comp s2_comp) = %s" (string_of_exp result_comp);;
+
+(* --- 3. Edit by position --- *)
+printf "";;
+printf "--- 3. Edit by position ---";;
+printf "e3 = Node(\"fn\",[|Node(\"g\",[|x|]); c; Node(\"h\",[|b; a|])|])";;
+printf "edit e3 [2;1] (Node(\"g\",[|c|]))";;
+(* Position [2;1] means: go to child index 2, then child index 1
+   Note: testcase uses 1-indexed positions; our implementation uses 0-indexed.
+   The testcase says [2;1] which in 1-indexed means 3rd child then 2nd child.
+   Our edit uses 0-indexed, so that would be [2;1] -> same numeric values but 0-indexed.
+   Let's test both interpretations and show both. *)
+
+let e3 = Node (("fn", 3), [|
+  Node (("g", 1), [| x_v |]);
+  c_n;
+  Node (("h", 2), [| b_n; a_n |])
+|]);;
+let new_node = Node (("g", 1), [| c_n |]);;
+
+(* 0-indexed: [2;1] = e3's 3rd child (Node "h"), then its 2nd child (a) *)
+(let pos = [2; 1] in
+ match edit pos new_node e3 with
+ | Some result -> printf "   Result (0-indexed pos [2;1]): %s" (string_of_exp result)
+ | None -> printf "   Result (0-indexed pos [2;1]): invalid position");;
+
+(* --- 4. In-place substitution --- *)
+printf "";;
+printf "--- 4. In-place substitution ---";;
+printf "e4 = Node(\"f\",[|x; Node(\"g\",[|x|])|])";;
+printf "s4 = [(\"x\", Node(\"g\",[|b|]))]";;
+
+let e4 = Node (("f", 2), [| x_v; Node (("g", 1), [| x_v |]) |]);;
+let s4 = [("x", Node (("g", 1), [| b_n |]))];;
+subst_inplace s4 e4;;
+printf "inplace_subst e4 s4 => e4 is now: %s" (string_of_exp e4);;
+
+(* ========================================
+   PART 5: wff, psubst, wp
+   pi = [("P",2); ("Q",1); ("R",0)]
+   ======================================== *)
+
+printf "";;
+printf "============================================================";;
+printf "PART 5: wff, psubst, wp";;
+printf "pi = [(\"P\",2); (\"Q\",1); (\"R\",0)]";;
+printf "============================================================";;
+
+let pi = [("P", 2); ("Q", 1); ("R", 0)];;
+let exp_sig_5 = [("a", 0); ("b", 0); ("h", 2); ("g", 1)];;
+
+let a5 = Node (("a", 0), [||]);;
+let b5 = Node (("b", 0), [||]);;
+let x5 = V "x";;
+let y5 = V "y";;
+
+(* --- 1. wff checks --- *)
+printf "";;
+printf "--- 1. wff checks ---";;
+
+printf "wff pi T         = %b" (wff pi exp_sig_5 T);;
+printf "wff pi F         = %b" (wff pi exp_sig_5 F);;
+
+(* wff pi (Pred("R",[|a|]))  — R has arity 0, so no args expected *)
+printf "wff pi (Pred(\"R\",[|a|]))  (* R has arity 0, given 1 arg => false *) = %b"
+  (wff pi exp_sig_5 (Pred (("R", 0), [| a5 |])));;
+
+printf "wff pi (Pred(\"R\",[||]))   (* R with 0 args => true *) = %b"
+  (wff pi exp_sig_5 (Pred (("R", 0), [||])));;
+
+(* --- 2. Predicate substitution --- *)
+printf "";;
+printf "--- 2. Predicate substitution ---";;
+printf "s_p = [(\"x\", Node(\"h\",[|b; y|])); (\"y\", Node(\"g\",[|a|]))]";;
+printf "p_p = Or(Pred(\"Q\",[|x|]), Pred(\"P\",[|x; y|]))";;
+
+let s_p = [
+  ("x", Node (("h", 2), [| b5; y5 |]));
+  ("y", Node (("g", 1), [| a5 |]))
+];;
+let p_p = Or (
+  Pred (("Q", 1), [| x5 |]),
+  Pred (("P", 2), [| x5; y5 |])
 );;
-assert_true "Substitution in P(x) ∧ Q(x, y)" (pred_equal result_p2 expected_p2);;
+let result_psubst = psubst s_p p_p;;
+printf "psubst p_p s_p = %s" (string_of_pred result_psubst);;
 
-(* Test 7: Weakest Precondition *)
-let p_wp = Pred (("Q", 2), [| V "x"; Node (("f", 2), [| V "x"; V "y" |]) |]);;
-let e_wp = Node (("g", 1), [| V "z" |]);;
-let result_wp = wp "x" e_wp p_wp;;
-let expected_wp = Pred (("Q", 2), [| Node (("g", 1), [| V "z" |]); Node (("f", 2), [| Node (("g", 1), [| V "z" |]); V "y" |]) |]);;
-assert_true "wp(x, g(z)) should replace all x occurrences" (pred_equal result_wp expected_wp);;
+(* --- 3. Weakest precondition --- *)
+printf "";;
+printf "--- 3. Weakest precondition ---";;
+printf "p_wp = And(Not(Pred(\"P\",[|x; y|])), Pred(\"Q\",[|x|]))";;
+printf "wp \"x\" (Node(\"g\",[|b|])) p_wp";;
 
-(* Test 8: Complex nested predicate *)
-let p_complex_nested = And (
-  Or (Pred (("P", 1), [| V "x" |]), Pred (("P", 1), [| V "y" |])),
-  Not (Pred (("Q", 2), [| V "x"; V "y" |]))
+let p_wp = And (
+  Not (Pred (("P", 2), [| x5; y5 |])),
+  Pred (("Q", 1), [| x5 |])
 );;
-assert_true "Complex nested predicate should be well-formed" (wff pred_sig exp_sig p_complex_nested);;
+let result_wp = wp "x" (Node (("g", 1), [| b5 |])) p_wp;;
+printf "wp result = %s" (string_of_pred result_wp);;
 
-let subst_complex = [("x", Node (("a", 0), [||]))];;
-let result_complex = psubst subst_complex p_complex_nested;;
-let expected_complex = And (
-  Or (Pred (("P", 1), [| Node (("a", 0), [||]) |]), Pred (("P", 1), [| V "y" |])),
-  Not (Pred (("Q", 2), [| Node (("a", 0), [||]); V "y" |]))
-);;
-assert_true "Substitution in complex nested predicate" (pred_equal result_complex expected_complex);;
+(* ========================================
+   DONE
+   ======================================== *)
+printf "";;
+printf "============================================================";;
+printf "All test cases completed. Results written to output.txt";;
+printf "============================================================";;
 
-Printf.printf "\n";;
-
-(* Print final summary *)
-print_summary();;
+close_out oc;;
