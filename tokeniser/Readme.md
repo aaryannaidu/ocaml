@@ -73,9 +73,30 @@ If the identifier rule appeared first, `t` would be matched as `IDENT("t")` inst
 **Unexpected characters raise a `Failure` error**  
 Any character not matched by the above rules (e.g. `@`, `#`, `$`) hits the catch-all rule `| _ { failwith ("Unexpected token: " ^ Lexing.lexeme lexbuf) }`. This gives a clear error message rather than a cryptic crash.
 
-## Building
+## Building & Running Tests
+
+Run the following command from inside the `tokeniser/` directory:
 
 ```bash
-ocamllex lexer.mll          # generates lexer.ml
-ocamlopt main.ml lexer.ml <your_file>.ml -o <binary>
+ocamllex lexer.mll && ocamlopt main.ml lexer.ml test.ml -o test && ./test
+```
+
+Or from the project root (`col226/`):
+
+```bash
+cd tokeniser && ocamllex lexer.mll && ocamlopt main.ml lexer.ml test.ml -o test && ./test
+```
+
+## Cleaning Generated Files
+
+To remove all compiled and generated artifacts:
+
+```bash
+rm -f tokeniser/lexer.ml tokeniser/test tokeniser/*.cmi tokeniser/*.cmx tokeniser/*.o
+```
+
+Or if you are already inside the `tokeniser/` directory:
+
+```bash
+rm -f lexer.ml test *.cmi *.cmx *.o
 ```

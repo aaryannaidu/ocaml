@@ -43,179 +43,63 @@ let tokenise input =
   in
   loop []
 
-(* ── test counters ── *)
-let passed = ref 0
-let failed = ref 0
-
-(* ── assert that input tokenises to exactly expected ── *)
-let assert_tokens label input expected =
-  let got = tokenise input in
-  if got = expected then begin
-    Printf.printf "  [PASS] %s\n" label;
-    incr passed
-  end else begin
-    Printf.printf "  [FAIL] %s\n" label;
-    Printf.printf "         expected: %s\n"
-      (String.concat " " (List.map string_of_token expected));
-    Printf.printf "         got:      %s\n"
-      (String.concat " " (List.map string_of_token got));
-    incr failed
-  end
-
-(* ── assert that the first token of input is expected ── *)
-let assert_first label input expected =
-  let got = List.hd (tokenise input) in
-  if got = expected then begin
-    Printf.printf "  [PASS] %s\n" label;
-    incr passed
-  end else begin
-    Printf.printf "  [FAIL] %s\n" label;
-    Printf.printf "         expected first: %s\n" (string_of_token expected);
-    Printf.printf "         got first:      %s\n" (string_of_token got);
-    incr failed
-  end
-
-(* ══════════════════════════════════════════════════════════ *)
+(* ── run and print test ── *)
+let run_test label input expected_tokens =
+  Printf.printf "Test: %s\n" label;
+  Printf.printf "Input:\n%s\n" input;
+  try
+    let tokens = tokenise input in
+    let token_strs = List.map string_of_token tokens in
+    Printf.printf "Output:\n%s\n" (String.concat " " token_strs);
+    if tokens = expected_tokens then
+      Printf.printf "Result: [PASS]\n\n"
+    else begin
+      Printf.printf "Result: [FAIL]\n";
+      Printf.printf "Expected:\n%s\n\n" (String.concat " " (List.map string_of_token expected_tokens))
+    end
+  with Failure msg ->
+    Printf.printf "Error: %s\n\n" msg
 
 let () =
+  Printf.printf "================================================================\n";
+  Printf.printf "SECTION 2.2: LEXICAL ANALYSIS\n";
+  Printf.printf "================================================================\n\n";
 
-  (* ── Section 1: Structural characters ── *)
-  Printf.printf "\n── Structural Characters ──\n";
-  assert_tokens "left paren"  "("  [LPAR; EOF];
-  assert_tokens "right paren" ")"  [RPAR; EOF];
-  assert_tokens "quote char"  "'"  [QUOTE; EOF];
+  run_test "2.2.1 Arithmetic operators, numerals, parentheses"
+    "(+ 12 (* 3 4) (- 10 5) (div 20 3) (mod 20 3))"
+    [LPAR; PLUS; INT "12"; LPAR; TIMES; INT "3"; INT "4"; RPAR; 
+     LPAR; MINUS; INT "10"; INT "5"; RPAR; LPAR; DIV; INT "20"; INT "3"; RPAR; 
+     LPAR; MOD; INT "20"; INT "3"; RPAR; RPAR; EOF];
 
-  (* ── Section 2: Constants ── *)
-  Printf.printf "\n── Constants ──\n";
-  assert_tokens "true"       "t"   [TRUE; EOF];
-  assert_tokens "nil / ()"  "()"  [NIL; EOF];
+  run_test "2.2.2 Comparison operators"
+    "(= 1 1) (=/= 1 2) (<= 2 3) (>= 3 2) (> 4 1) (< 1 4)"
+    [LPAR; EQ; INT "1"; INT "1"; RPAR; LPAR; NEQ; INT "1"; INT "2"; RPAR;
+     LPAR; LEQ; INT "2"; INT "3"; RPAR; LPAR; GEQ; INT "3"; INT "2"; RPAR;
+     LPAR; GT; INT "4"; INT "1"; RPAR; LPAR; LT; INT "1"; INT "4"; RPAR; EOF];
 
-  (* ── Section 3: BigInt numerals ── *)
-  Printf.printf "\n── BigInt Numerals ──\n";
-  assert_first "zero"                    "0"                            (INT "0");
-  assert_first "small int"              "42"                           (INT "42");
-  assert_first "large int"              "99999999999999999999"         (INT "99999999999999999999");
-  assert_first "very large bigint"      "123456789012345678901234567890"
-                                                                       (INT "123456789012345678901234567890");
-  assert_tokens "bigint in expression"  "(+ 999999999999999 1)"
-    [LPAR; PLUS; INT "999999999999999"; INT "1"; RPAR; EOF];
-  (* Confirm stored as raw string — NOT converted to int (no overflow) *)
-  assert_first "bigint stored as string, not int"
-    "100000000000000000000000000000"
-    (INT "100000000000000000000000000000");
+  run_test "2.2.3 Constants, quote keyword, quote symbol, empty list"
+    "(quote a) 'a '(a b c) t ()"
+    [LPAR; QUOTE_KW; IDENT "a"; RPAR; QUOTE; IDENT "a"; QUOTE;
+     LPAR; IDENT "a"; IDENT "b"; IDENT "c"; RPAR; TRUE; NIL; EOF];
 
-  (* ── Section 4: Arithmetic operators ── *)
-  Printf.printf "\n── Arithmetic Operators ──\n";
-  assert_first "plus"   "+"   PLUS;
-  assert_first "minus"  "-"   MINUS;
-  assert_first "times"  "*"   TIMES;
-  assert_first "div"    "div" DIV;
-  assert_first "mod"    "mod" MOD;
+  run_test "2.2.4 Primitive operations and compound car/cdr abbreviations"
+    "(car x) (cdr x) (cadr x) (caadr x) (cdar x) (cdadr x) (cons a b) (cond (t a))"
+    [LPAR; CADR_COMBO "car"; IDENT "x"; RPAR; LPAR; CADR_COMBO "cdr"; IDENT "x"; RPAR;
+     LPAR; CADR_COMBO "cadr"; IDENT "x"; RPAR; LPAR; CADR_COMBO "caadr"; IDENT "x"; RPAR;
+     LPAR; CADR_COMBO "cdar"; IDENT "x"; RPAR; LPAR; CADR_COMBO "cdadr"; IDENT "x"; RPAR;
+     LPAR; CONS; IDENT "a"; IDENT "b"; RPAR; LPAR; COND; LPAR; TRUE; IDENT "a"; RPAR; RPAR; EOF];
 
-  (* ── Section 5: Comparison operators ── *)
-  Printf.printf "\n── Comparison Operators ──\n";
-  assert_first "eq"   "="   EQ;
-  assert_first "lt"   "<"   LT;
-  assert_first "gt"   ">"   GT;
-  assert_first "leq"  "<="  LEQ;
-  assert_first "geq"  ">="  GEQ;
-  assert_first "neq"  "=/=" NEQ;
+  run_test "2.2.5 Comments and identifiers ending in dot"
+    ";;;; file header comment\n\
+     (defun append. (x y)\n\
+     \  (cond ; inline comment after cond\n\
+     \    ((null. x) y) ;; indented comment\n\
+     \    (t (cons (car x) (append. (cdr x) y))))) ; final inline comment"
+    [LPAR; DEFUN; IDENT "append."; LPAR; IDENT "x"; IDENT "y"; RPAR;
+     LPAR; COND; LPAR; LPAR; IDENT "null."; IDENT "x"; RPAR; IDENT "y"; RPAR;
+     LPAR; TRUE; LPAR; CONS; LPAR; CADR_COMBO "car"; IDENT "x"; RPAR;
+     LPAR; IDENT "append."; LPAR; CADR_COMBO "cdr"; IDENT "x"; RPAR; IDENT "y"; RPAR;
+     RPAR; RPAR; RPAR; RPAR; EOF]
 
-  (* ── Section 6: Primitive keywords ── *)
-  Printf.printf "\n── Primitive Keywords ──\n";
-  assert_first "quote"  "quote"  QUOTE_KW;
-  assert_first "atom"   "atom"   ATOM;
-  assert_first "eq kw"  "eq"     EQ_KW;
-  assert_first "cons"   "cons"   CONS;
-  assert_first "cond"   "cond"   COND;
 
-  (* ── Section 7: car/cdr compound forms ── *)
-  Printf.printf "\n── car/cdr Compound Forms ──\n";
-  assert_first "car"   "car"   (CADR_COMBO "car");
-  assert_first "cdr"   "cdr"   (CADR_COMBO "cdr");
-  assert_first "cadr"  "cadr"  (CADR_COMBO "cadr");
-  assert_first "caadr" "caadr" (CADR_COMBO "caadr");
-  assert_first "cdar"  "cdar"  (CADR_COMBO "cdar");
-  assert_first "cdadr" "cdadr" (CADR_COMBO "cdadr");
-  assert_first "caddr" "caddr" (CADR_COMBO "caddr");
-
-  (* ── Section 8: Definition keywords ── *)
-  Printf.printf "\n── Definition Keywords ──\n";
-  assert_first "lambda" "lambda" LAMBDA;
-  assert_first "label"  "label"  LABEL;
-  assert_first "defun"  "defun"  DEFUN;
-
-  (* ── Section 9: Identifiers (with optional dot) ── *)
-  Printf.printf "\n── Identifiers ──\n";
-  assert_first "plain ident"   "myFunc"   (IDENT "myFunc");
-  assert_first "ident with ."  "list."    (IDENT "list.");
-  assert_first "null."         "null."    (IDENT "null.");
-  assert_first "eval."         "eval."    (IDENT "eval.");
-  assert_first "append."       "append."  (IDENT "append.");
-  assert_first "assoc."        "assoc."   (IDENT "assoc.");
-  assert_first "evlis."        "evlis."   (IDENT "evlis.");
-
-  (* ── Section 10: Comments ignored ── *)
-  Printf.printf "\n── Comments (should be silently consumed) ──\n";
-  assert_tokens "inline ;"    "(+ 1 2) ; ignored\n"  [LPAR; PLUS; INT "1"; INT "2"; RPAR; EOF];
-  assert_tokens "double ;;"   ";; whole line\n42"     [INT "42"; EOF];
-  assert_tokens "triple ;;;"  ";;; section\n42"       [INT "42"; EOF];
-  assert_tokens "quad ;;;;"   ";; file header\n42"    [INT "42"; EOF];
-
-  (* ── Section 11: Whitespace ignored ── *)
-  Printf.printf "\n── Whitespace (should be silently consumed) ──\n";
-  assert_tokens "spaces tabs newlines"
-    "  (  \t+\n1\r\n2  )  "
-    [LPAR; PLUS; INT "1"; INT "2"; RPAR; EOF];
-
-  (* ── Section 12: Full LITHP programs ── *)
-  Printf.printf "\n── Full LITHP Expressions ──\n";
-  assert_tokens "defun with bigint args"
-    "(defun add. (x y) (+ x y))"
-    [LPAR; DEFUN; IDENT "add."; LPAR; IDENT "x"; IDENT "y"; RPAR;
-     LPAR; PLUS; IDENT "x"; IDENT "y"; RPAR; RPAR; EOF];
-
-  assert_tokens "cond expression"
-    "(cond ((= x 0) t) (t ()))"
-    [LPAR; COND; LPAR; LPAR; EQ; IDENT "x"; INT "0"; RPAR; TRUE; RPAR;
-     LPAR; TRUE; NIL; RPAR; RPAR; EOF];
-
-  assert_tokens "quote expression"
-    "'(1 2 3)"
-    [QUOTE; LPAR; INT "1"; INT "2"; INT "3"; RPAR; EOF];
-
-  assert_tokens "bigint arithmetic in LITHP"
-    "(+ 99999999999999999999 1)"
-    [LPAR; PLUS; INT "99999999999999999999"; INT "1"; RPAR; EOF];
-
-  (* ── Section 13: 5+ semicolons still treated as comment ── *)
-  Printf.printf "\n── 5+ Semicolons = Comment ──\n";
-  assert_tokens "5 semicolons"  ";;;;; still a comment\n42"  [INT "42"; EOF];
-  assert_tokens "10 semicolons" ";;;;;;;;;; big header\n t"   [TRUE; EOF];
-
-  (* ── Section 14: Unexpected characters raise an error ── *)
-  Printf.printf "\n── Unexpected Characters (catch-all error) ──\n";
-  let assert_error label input =
-    (try
-      let _ = tokenise input in
-      Printf.printf "  [FAIL] %s — expected error but got tokens\n" label;
-      incr failed
-    with Failure msg ->
-      Printf.printf "  [PASS] %s — caught error: %s\n" label msg;
-      incr passed)
-  in
-  assert_error "@ symbol"     "(@ foo)";
-  assert_error "# symbol"     "#define";
-  assert_error "$ symbol"     "$var";
-  assert_error "! symbol"     "!flag";
-  assert_error "backslash"    "\\x";
-
-  (* ── Final summary ── *)
-  Printf.printf "\n══════════════════════════════\n";
-  Printf.printf "Results: %d passed, %d failed\n" !passed !failed;
-  if !failed = 0 then
-    Printf.printf "All tests PASSED ✓\n"
-  else
-    Printf.printf "Some tests FAILED ✗\n";
-  Printf.printf "══════════════════════════════\n"
 

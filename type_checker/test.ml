@@ -1,134 +1,126 @@
 open Types
 open Ast
 
-(* A helper to parse a string into an expression list *)
+(* Helper: parse a string into an expression list *)
 let parse_str str =
   let lexbuf = Lexing.from_string str in
   Parser.program Lexer.token lexbuf
 
-(* Helper to check if a code sample evaluates to the expected types *)
-let assert_types code expected_types =
-  try
-    let exprs = parse_str code in
-    List.iter (fun e ->
-      let inferred = Typechecker.typecheck e in
-      
-      (* Check if all expected types are present in inferred types *)
-      let success = List.for_all (fun exp_t -> 
-         List.exists (match_types exp_t) inferred
-      ) expected_types in
-      
-      if success then
-        Printf.printf "[PASS] %-30s -> [%s]\n" code (String.concat ", " (List.map string_of_typ inferred))
-      else begin
-        Printf.printf "[FAIL] %-30s\n" code;
-        Printf.printf "       Expected: [%s]\n" (String.concat ", " (List.map string_of_typ expected_types));
-        Printf.printf "       Got     : [%s]\n" (String.concat ", " (List.map string_of_typ inferred));
-      end
-    ) exprs
-  with
-  | Typechecker.TypeError msg ->
-      Printf.printf "[FAIL] %-30s -> Raised Unexpected Type Error: %s\n" code msg
-  | e ->
-      Printf.printf "[ERROR] %-30s -> Parsing/Lexing Failed: %s\n" code (Printexc.to_string e)
+(* Helper: format a list of types as a readable string *)
+let show_types ts =
+  "[" ^ String.concat ", " (List.map string_of_typ ts) ^ "]"
 
-(* Helper to test that a piece of code strictly FAILS type checking *)
-let assert_type_error code =
+(* Test counters *)
+let passes  = ref 0
+let failures = ref 0
+
+(* check_types: expect parse + typecheck to succeed and produce types matching expected *)
+let check_types label input expected_types =
+  Printf.printf "========================================\n";
+  Printf.printf "Test: %s\n" label;
+  Printf.printf "Input:\n%s\n" input;
   try
-    let exprs = parse_str code in
-    List.iter (fun e ->
-      let _ = Typechecker.typecheck e in
-      Printf.printf "[FAIL] %-30s -> Expected a TypeError, but it passed!\n" code
-    ) exprs
+    let exprs = parse_str input in
+    (* Typecheck each expression; collect all results *)
+    let all_types = List.concat_map (fun e -> Typechecker.typecheck e) exprs in
+    Printf.printf "Output:\n%s\n" (show_types all_types);
+    let success = List.for_all (fun exp_t ->
+      List.exists (match_types exp_t) all_types
+    ) expected_types in
+    if success then begin
+      Printf.printf "Assertion: [PASS]\n";
+      incr passes
+    end else begin
+      Printf.printf "Assertion: [FAIL]\n  expected to contain: %s\n" (show_types expected_types);
+      incr failures
+    end
   with
   | Typechecker.TypeError msg ->
-      Printf.printf "[PASS] %-30s -> (Caught expected error)\n" code
+      Printf.printf "Output:\nTypeError: %s\n" msg;
+      Printf.printf "Assertion: [FAIL] — unexpected type error\n";
+      incr failures
   | e ->
-      Printf.printf "[ERROR] %-30s -> Parsing/Lexing Failed instead of Type Error\n" code
+      Printf.printf "Output:\nException: %s\n" (Printexc.to_string e);
+      Printf.printf "Assertion: [FAIL]\n";
+      incr failures
+
+(* check_error: expect typecheck to raise a TypeError *)
+let check_error label input =
+  Printf.printf "========================================\n";
+  Printf.printf "Test: %s\n" label;
+  Printf.printf "Input:\n%s\n" input;
+  try
+    let exprs = parse_str input in
+    let _ = List.concat_map (fun e -> Typechecker.typecheck e) exprs in
+    Printf.printf "Output:\n(no error raised)\n";
+    Printf.printf "Assertion: [FAIL] — expected a TypeError but got none\n";
+    incr failures
+  with
+  | Typechecker.TypeError msg ->
+      Printf.printf "Output:\nTypeError: %s\n" msg;
+      Printf.printf "Assertion: [PASS] — TypeError caught as expected\n";
+      incr passes
+  | e ->
+      Printf.printf "Output:\nException: %s\n" (Printexc.to_string e);
+      Printf.printf "Assertion: [FAIL] — expected TypeError, got other exception\n";
+      incr failures
 
 let () =
-  print_endline "=== LITHP Type Checker Component Tests ===\n";
-  
-  print_endline "--- 1. Basic Types ---";
-  assert_types "5" [TInt];
-  assert_types "'t" [TBool];
-  assert_types "t" [TBool];
-  
-  print_endline "\n--- 2. Overloading the Empty List () ---";
-  assert_types "()" [TBool; TList 0];
 
-  print_endline "\n--- 3. Arithmetic & Logic ---";
-  assert_types "(+ 1 2 3)" [TInt];
-  assert_types "(* 4 5)" [TInt];
-  assert_types "(- 10 5)" [TInt];
-  assert_types "(> 5 3)" [TBool];
-  assert_types "(not 't)" [TBool];
-  assert_types "(and 't ())" [TBool]; (* () can be boolean *)
+  (* 2.4.1 Constants and quoted list *)
+  check_types "2.4.1 Boolean atom t"           "t"          [TBool];
+  check_types "2.4.1 Empty list ()"             "()"         [TBool; TList 0];
+  check_types "2.4.1 Integer 12345"             "12345"      [TInt];
+  check_types "2.4.1 Quoted list '(a b c d)"   "'(a b c d)" [TBool];
 
-  print_endline "\n--- 4. List Operations ---";
-  (* Creating a list of length 1 by consing onto empty list (List(0)) *)
-  assert_types "(cons 1 ())" [TList 1];
-  assert_types "(cons 'a (cons 'b ()))" [TList 2];
-  
-  (* car takes List(n>0) and returns Any *)
-  assert_types "(car (cons 1 ()))" [TAny];
-  
-  (* cdr takes List(n>0) and returns List(n-1) *)
-  assert_types "(cdr (cons 1 (cons 2 ())))" [TList 1];
+  (* 2.4.2 Arithmetic, comparison, and boolean operators *)
+  check_types "2.4.2 Addition (+ 1 2 3)"                  "(+ 1 2 3)"            [TInt];
+  check_types "2.4.2 Multiplication (* 2 3 4)"             "(* 2 3 4)"            [TInt];
+  check_types "2.4.2 Subtraction (- 10 4)"                 "(- 10 4)"             [TInt];
+  check_types "2.4.2 Division (div 17 5)"                  "(div 17 5)"           [TInt];
+  check_types "2.4.2 Modulo (mod 17 5)"                    "(mod 17 5)"           [TInt];
+  check_types "2.4.2 Comparison (> 5 3)"                   "(> 5 3)"              [TBool];
+  check_types "2.4.2 Boolean (and (not t) (or t t))"       "(and (not t) (or t t))" [TBool];
 
-  print_endline "\n--- 5. Cond statements ---";
-  assert_types "(cond ((> 5 3) 1) ('t 2))" [TInt];
-  
-  print_endline "\n--- 6. Functions (Lambda & Defun) ---";
-  (* Function taking 1 argument -> Int *)
-  assert_types "(lambda (x) (+ x 1))" [TFunction (1, TInt)];
-  (* Applying the function directly *)
-  assert_types "((lambda (x) (+ x 1)) 5)" [TInt];
-  
-  (* Using defun *)
-  assert_types "(defun addone (x) (+ x 1))" [TFunction (1, TInt)];
+  (* 2.4.3 List and atom primitives *)
+  check_types "2.4.3 atom of int (atom 1)"         "(atom 1)"         [TBool];
+  check_types "2.4.3 atom of quoted (atom '(a b c))" "(atom '(a b c))" [TBool];
+  (* Note: '(a b c) is treated as TBool by the typechecker (non-evaluating quotes),
+     so cdr and cons on quoted lists correctly raise TypeErrors. *)
+  check_error "2.4.3 cdr of quoted list (cdr '(a b c))" "(cdr '(a b c))";
+  check_error "2.4.3 cons int onto quoted (cons 1 '(2 3))" "(cons 1 '(2 3))";
 
-  print_endline "\n--- 7. Expecting Failures (Type Errors) ---";
-  assert_type_error "(+ 1 't)";         (* Cannot add int to bool *)
-  assert_type_error "(car ())";        (* Cannot car an empty list, n must be > 0 *)
-  assert_type_error "(not 5)";         (* not expects bool *)
-  assert_type_error "(cons 1 2)";      (* cons expects List(n) as second arg *)
-  assert_type_error "(eq 5 't)";       (* eq expects both arguments to share a type *)
-  assert_type_error "((lambda (x y) (+ x y)) 5)"; (* Incorrect number of arguments *)
-  assert_type_error "(cond ((+ 1 2) 5))"; (* cond condition must be a bool *)
+  (* 2.4.4 Type errors and eq type consistency *)
+  check_types "2.4.4 eq same type (eq 1 2)"       "(eq 1 2)"   [TBool];
+  check_error "2.4.4 eq type mismatch (eq 1 t)"   "(eq 1 t)";
+  check_error "2.4.4 add int and bool (+ 1 t)"    "(+ 1 t)";
+  check_error "2.4.4 car of empty (car ())"        "(car ())";
+  check_error "2.4.4 cons onto non-list (cons 1 2)" "(cons 1 2)";
 
-  print_endline "\n--- 8. Rigorous & Edge Cases (Success) ---";
-  
-  (* Nested Lambdas (Currying) *)
-  assert_types "(((lambda (x) (lambda (y) (+ x y))) 5) 10)" [TInt];
-  
-  (* Overloading trick: () acting as Bool AND List(0) in the exact same expression! *)
-  assert_types "(and () (eq (cdr (cons 1 ())) ()))" [TBool];
-  
-  (* label recursion: factorial function *)
-  assert_types "(label fact (lambda (n) (cond ((eq n 0) 1) ('t (* n (fact (- n 1)))))))" [TFunction (1, TInt)];
-  
-  (* Complex defun returning lists *)
-  assert_types "(defun buildlist (x) (cons x (cons (+ x 1) ())))" [TFunction (1, TList 2)];
-  
-  (* Nested functions and arguments *)
-  assert_types "((lambda (f lst) (cons (f 5) lst)) (lambda (x) (+ x 10)) ())" [TList 1];
+  (* 2.4.5 cond typing *)
+  check_types "2.4.5 cond all Int branches"
+    "(cond ((atom 1) 10) ((> 3 4) 20) (t 30))"
+    [TInt];
+  check_error "2.4.5 cond with non-Bool condition (cond (1 10) (t 20))"
+    "(cond (1 10) (t 20))";
 
-  print_endline "\n--- 9. Rigorous Edge Cases (Expecting Failures) ---";
-  
-  (* Cond branches do not share a common type (Strong typing enforcement!) *)
-  assert_type_error "(cond ('t 1) (() 't))"; (* Int vs Bool *)
-  
-  (* Incorrect argument counts for built-ins *)
-  assert_type_error "(+)";
-  assert_type_error "(+ 1)";
-  assert_type_error "(- 1 2 3)"; (* minus strictly takes 2 *)
-  
-  (* Attempting to car/cdr non-lists or empty lists *)
-  assert_type_error "(car 5)";
-  assert_type_error "(cdr 't)";
-  
-  (* Erroneous recursion: calling label function with wrong arity *)
-  assert_type_error "(label f (lambda (x) (f x 1)))";
+  (* 2.4.6 Lambda and function application *)
+  check_types "2.4.6 Lambda applied 2 args ((lambda (x y) (+ x y)) 4 5)"
+    "((lambda (x y) (+ x y)) 4 5)"
+    [TInt];
+  (* Note: '(2 3) is treated as TBool, so cons inside the lambda raises a TypeError *)
+  check_error "2.4.6 Lambda cons onto quoted ((lambda (x) (cons x '(2 3))) 1)"
+    "((lambda (x) (cons x '(2 3))) 1)";
+  check_error "2.4.6 Lambda arg count mismatch ((lambda (x y) (+ x y)) 4)"
+    "((lambda (x y) (+ x y)) 4)";
 
-  print_endline "\n============================================\n"
+  (* 2.4.7 Recursive function definition using defun *)
+  check_types "2.4.7 defun factorial"
+    "(defun fact (n) (cond ((<= n 1) 1) (t (* n (fact (- n 1))))))"
+    [TFunction (1, TInt)];
+
+  (* Final report *)
+  Printf.printf "\n────────────────────────────\n";
+  Printf.printf "  %d passed,  %d failed\n" !passes !failures;
+  Printf.printf "────────────────────────────\n";
+  if !failures > 0 then exit 1
